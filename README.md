@@ -254,6 +254,6 @@ MIT — use it, fork it, self-host it, build on it.
 
 ## Built by
 
-**Nikhil Sai** · [@nikhilbuildss](https://x.com/itzznikhilsai) · [nikhilsai.in](https://nikhilsai.in)
+**Nikhil Sai** · [@itzznikhilsai](https://x.com/itzznikhilsai) · [nikhilsai.in](https://nikhilsai.in)
 
 If this helped you, star the repo ⭐ and share it on X.
