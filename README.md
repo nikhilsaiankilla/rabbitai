@@ -1,4 +1,8 @@
-# 🐇 RabbitAI — AI Code Reviewer
+<p align="center">
+  <img src="./assets/banner.png" alt="RabbitAI Logo" width="100%" />
+</p>
+
+# RabbitAI — AI Code Reviewer
 
 > Open-source AI code reviewer that auto-reviews GitHub PRs with zero cost and full self-hosting.
 

@@ -1,0 +1,22 @@
+github_token: "ghp_xxx"
+gemini_api_key: "xxx"
+
+vector_store:
+  provider: "chromadb" # or pinecone, qdrant, weaviate etc
+  path: "./chroma_db" # for local chromadb
+  # api_key: "xxx"            # for cloud providers
+
+memory:
+  provider: "mem0" # or custom json, supabase etc
+  enabled: true
+  repo_context: |
+    This repo uses Next.js 15...
+
+review:
+  language: "typescript"
+  focus:
+    - bugs
+    - security
+    - performance
+  min_risk_score: 6
+  post_score: true
