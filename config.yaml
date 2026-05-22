@@ -1,22 +1,80 @@
+# RabbitAI config
+# Copy this to config.yaml and fill in your values.
+# config.yaml is gitignored — never commit it.
+# In GitHub Actions, secrets are injected via env vars automatically.
+
+# GitHub Personal Access Token
+# Only needed for LOCAL testing — GitHub Actions injects GITHUB_TOKEN automatically
+# Get one at: github.com → Settings → Developer settings → Personal access tokens → classic
+# Required scope: repo
 github_token: "ghp_xxx"
+
+# Gemini API key — free at aistudio.google.com
+# Used for: embeddings (text-embedding-004) + review generation (gemini-2.0-flash)
 gemini_api_key: "xxx"
 
+# Vector Store — where diff chunks are embedded and stored
 vector_store:
-  provider: "chromadb" # or pinecone, qdrant, weaviate etc
-  path: "./chroma_db" # for local chromadb
-  # api_key: "xxx"            # for cloud providers
+  # Supported: chromadb | pinecone | qdrant
+  # chromadb is local and free — recommended for getting started
+  provider: "chromadb"
 
+  # chromadb only — local folder where the DB is persisted
+  path: "./chroma_db"
+
+  # Name of the collection inside the vector store
+  collection: "pr-chunks"
+
+  # Cloud provider credentials — uncomment based on your provider
+
+  # Pinecone:
+  # provider: "pinecone"
+  # api_key: "xxx"
+  # index_name: "code-review"
+
+  # Qdrant self-hosted:
+  # provider: "qdrant"
+  # host: "localhost"
+  # port: 6333
+
+  # Qdrant cloud:
+  # provider: "qdrant"
+  # host: "https://your-cluster.qdrant.io"
+  # api_key: "xxx"
+
+# Memory — persistent context across PR reviews
 memory:
-  provider: "mem0" # or custom json, supabase etc
+  # Set to false to disable persistent memory entirely
+  # When disabled, only repo_context below is used (static)
   enabled: true
-  repo_context: |
-    This repo uses Next.js 15...
 
+  # Static context injected into every review prompt
+  # Describe your repo so RabbitAI understands it from day one
+  # The more detail here, the better the first few reviews will be
+  repo_context: |
+    Describe your repo here.
+    Example: This repo uses Next.js 15, Drizzle ORM, TypeScript strict mode,
+    Supabase Auth, and Vercel deployment. Prefer functional components.
+    No class components. All API routes are in app/api using Route Handlers.
+
+# Review behaviour
 review:
+  # Primary language of your repo
+  # Used to give Gemini language-specific context
+  # Examples: typescript, python, go, rust, java
   language: "typescript"
+
+  # What to focus the review on
+  # Supported: bugs, security, performance, design, tests, docs
   focus:
     - bugs
     - security
     - performance
+
+  # Skip posting the comment if the PR scores ABOVE this threshold
+  # e.g. min_risk_score: 8 means only post if score is 8 or below (has issues)
+  # Set to 0 to always post regardless of score
   min_risk_score: 6
+
+  # Whether to show the 1-10 score in the PR comment
   post_score: true

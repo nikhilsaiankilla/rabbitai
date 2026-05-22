@@ -1,6 +1,6 @@
 """
 agent.py — LangGraph workflow entry point
-Wires all 7 nodes into a directed graph and runs the full PR review pipeline.
+Wires all 7 nodes + memory into a directed graph and runs the full PR review pipeline.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from nodes.embedder import EmbedResult, embed_and_store
 from nodes.retriever import RetrievalResult, retrieve
 from nodes.reviewer import ReviewResult, review
 from nodes.poster import PostResult, post_comment
+from memory.repo_memory import MemoryResult, load_memory, save_memory
 from utils.config import load_config
 
 
@@ -28,6 +29,7 @@ class ReviewState(TypedDict):
     classification: ClassificationResult | None
     embed_result: EmbedResult | None
     retrieval: RetrievalResult | None
+    memory: MemoryResult | None
     review_result: ReviewResult | None
     post_result: PostResult | None
 
@@ -62,7 +64,6 @@ def node_retrieve(state: ReviewState) -> ReviewState:
     classification = state["classification"]
     pr_id = f"{pr.repo_name}#{pr.pr_number}"
 
-    # Build query from classification so retrieval is focused
     query = (
         f"{classification.change_type} review: "
         + ", ".join(classification.review_focus[:3])
@@ -72,12 +73,18 @@ def node_retrieve(state: ReviewState) -> ReviewState:
     return {**state, "retrieval": result}
 
 
+def node_load_memory(state: ReviewState) -> ReviewState:
+    mem = load_memory(state["repo_name"], state["config"])
+    return {**state, "memory": mem}
+
+
 def node_review(state: ReviewState) -> ReviewState:
     result = review(
         pr=state["pr"],
         graph=state["graph_insight"],
         classification=state["classification"],
         retrieval=state["retrieval"],
+        memory=state["memory"],
         config=state["config"],
     )
     return {**state, "review_result": result}
@@ -92,6 +99,13 @@ def node_post(state: ReviewState) -> ReviewState:
     return {**state, "post_result": result}
 
 
+def node_save_memory(state: ReviewState) -> ReviewState:
+    review_result = state["review_result"]
+    if review_result:
+        save_memory(state["repo_name"], review_result.raw, state["config"])
+    return state
+
+
 def build_graph() -> StateGraph:
     g = StateGraph(ReviewState)
 
@@ -100,26 +114,29 @@ def build_graph() -> StateGraph:
     g.add_node("classify", node_classify)
     g.add_node("embed", node_embed)
     g.add_node("retrieve", node_retrieve)
+    g.add_node("load_memory", node_load_memory)
     g.add_node("review", node_review)
     g.add_node("post", node_post)
+    g.add_node("save_memory", node_save_memory)
 
     g.set_entry_point("fetch")
 
-    # fetch → graph + classify + embed in sequence
     g.add_edge("fetch", "graph")
     g.add_edge("graph", "classify")
     g.add_edge("classify", "embed")
     g.add_edge("embed", "retrieve")
-    g.add_edge("retrieve", "review")
+    g.add_edge("retrieve", "load_memory")   # load past learnings before review
+    g.add_edge("load_memory", "review")
     g.add_edge("review", "post")
-    g.add_edge("post", END)
+    g.add_edge("post", "save_memory")       # save new learnings after posting
+    g.add_edge("save_memory", END)
 
     return g.compile()
 
 
 def run(repo_name: str, pr_number: int, config_path: str = "config.yaml") -> PostResult:
     """
-    Main entry point — call this from GitHub Action, FastAPI, or CLI.
+    Main entry point — called from GitHub Action, MCP server, or CLI.
 
     Args:
         repo_name:   "owner/repo"
@@ -140,6 +157,7 @@ def run(repo_name: str, pr_number: int, config_path: str = "config.yaml") -> Pos
         "classification": None,
         "embed_result": None,
         "retrieval": None,
+        "memory": None,
         "review_result": None,
         "post_result": None,
     }
@@ -148,8 +166,8 @@ def run(repo_name: str, pr_number: int, config_path: str = "config.yaml") -> Pos
     final_state = graph.invoke(initial_state)
 
     result = final_state["post_result"]
-    print(f"[agent] {result.reason}")
+    print(f"[rabbitai] {result.reason}")
     if result.comment_url:
-        print(f"[agent] comment → {result.comment_url}")
+        print(f"[rabbitai] comment → {result.comment_url}")
 
     return result
