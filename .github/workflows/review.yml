@@ -9,8 +9,8 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      pull-requests: write   # needed to post PR comments
-      contents: read         # needed to checkout code
+      pull-requests: write
+      contents: read
 
     steps:
       - name: Checkout
@@ -33,19 +33,19 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run RabbitAI
-      - env:
+        env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-
-          # Provider selection
-          VECTOR_STORE_PROVIDER: ${{ vars.VECTOR_STORE_PROVIDER }}   # chromadb | pinecone | qdrant
-          EMBEDDING_PROVIDER: ${{ vars.EMBEDDING_PROVIDER }}         # gemini | openai
-          EMBEDDING_MODEL: ${{ vars.EMBEDDING_MODEL }}               # optional override
-          LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}                     # gemini | openai
-          LLM_MODEL: ${{ vars.LLM_MODEL }}                           # optional override
-          REVIEW_LANGUAGE: ${{ vars.REVIEW_LANGUAGE }}               # typescript | python | go etc
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          VECTOR_STORE_PROVIDER: ${{ vars.VECTOR_STORE_PROVIDER }}
+          EMBEDDING_PROVIDER: ${{ vars.EMBEDDING_PROVIDER }}
+          EMBEDDING_MODEL: ${{ vars.EMBEDDING_MODEL }}
+          LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          REVIEW_LANGUAGE: ${{ vars.REVIEW_LANGUAGE }}
         run: |
           python -c "
           import os
