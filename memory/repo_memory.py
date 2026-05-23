@@ -113,7 +113,16 @@ def load_memory(repo_name: str, config: dict) -> MemoryResult:
     if not results:
         return MemoryResult(context="", entries=[], repo_id=repo_id)
 
-    entries = [r.get("memory", "") for r in results if r.get("memory")]
+    entries = []
+    for r in results:
+        if isinstance(r, dict):
+            val = r.get("memory", "")
+        elif isinstance(r, str):
+            val = r
+        else:
+            val = str(r)
+        if val:
+            entries.append(val)
 
     if not entries:
         return MemoryResult(context="", entries=[], repo_id=repo_id)
