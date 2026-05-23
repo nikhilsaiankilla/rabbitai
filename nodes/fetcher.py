@@ -7,6 +7,9 @@ This is the raw input that every other node operates on.
 from dataclasses import dataclass
 from github import Github, GithubException
 
+from github import Auth
+
+
 @dataclass
 class PRData:
     repo_name: str
@@ -37,7 +40,7 @@ def fetch_pr(github_token: str, repo_name: str, pr_number: int) -> PRData:
         PRData with full diff + per-file metadata
     """
     try:
-        g = Github(github_token)
+        g = Github(auth=Auth.Token(github_token))
         repo = g.get_repo(repo_name)
         pr = repo.get_pull(pr_number)
     except GithubException as e:

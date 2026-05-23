@@ -21,8 +21,58 @@ class MemoryResult:
     repo_id: str        # user_id used in mem0 — derived from repo name
 
 
-def _get_client() -> Memory:
-    return Memory()
+def _get_client(config: dict) -> Memory:
+    """
+    Build mem0 Memory client using the embedding provider from config.yaml.
+    Mirrors the same provider the user chose for embedder.py and retriever.py.
+    """
+    embed_cfg = config.get("embedding", {})
+    provider = embed_cfg.get("provider", "gemini").lower()
+
+    if provider == "gemini":
+        mem_config = {
+            "embedder": {
+                "provider": "gemini",
+                "config": {
+                    "model": embed_cfg.get("model") or "models/gemini-embedding-001",
+                    "api_key": config.get("gemini_api_key"),
+                },
+            },
+            "llm": {
+                "provider": "gemini",
+                "config": {
+                    "model": "gemini-2.0-flash",
+                    "api_key": config.get("gemini_api_key"),
+                },
+            },
+        }
+
+    elif provider == "openai":
+        api_key = embed_cfg.get("api_key") or config.get("openai_api_key")
+        mem_config = {
+            "embedder": {
+                "provider": "openai",
+                "config": {
+                    "model": embed_cfg.get("model") or "text-embedding-3-small",
+                    "api_key": api_key,
+                },
+            },
+            "llm": {
+                "provider": "openai",
+                "config": {
+                    "model": "gpt-4.1-mini",
+                    "api_key": api_key,
+                },
+            },
+        }
+
+    else:
+        raise ValueError(
+            f"Unsupported embedding provider for mem0: '{provider}'. "
+            "Supported: gemini, openai"
+        )
+
+    return Memory.from_config(mem_config)
 
 
 def _repo_id(repo_name: str) -> str:
@@ -47,14 +97,18 @@ def load_memory(repo_name: str, config: dict) -> MemoryResult:
         return MemoryResult(context="", entries=[], repo_id="")
 
     repo_id = _repo_id(repo_name)
-    m = _get_client()
 
-    # Search for anything relevant to code review patterns in this repo
-    results = m.search(
-        query="repo conventions patterns recurring issues code style",
-        user_id=repo_id,
-        limit=10,
-    )
+    try:
+        m = _get_client(config)
+        results = m.search(
+            query="repo conventions patterns recurring issues code style",
+            user_id=repo_id,
+            limit=10,
+        )
+    except Exception as e:
+        # Memory failure should never block a review
+        print(f" [memory] Warning: failed to load memory — {e}")
+        return MemoryResult(context="", entries=[], repo_id=repo_id)
 
     if not results:
         return MemoryResult(context="", entries=[], repo_id=repo_id)
@@ -85,7 +139,11 @@ def save_memory(repo_name: str, review_text: str, config: dict) -> None:
         return
 
     repo_id = _repo_id(repo_name)
-    m = _get_client()
 
-    # mem0 automatically extracts and deduplicates facts from the text
-    m.add(review_text, user_id=repo_id)
+    try:
+        m = _get_client(config)
+        # mem0 automatically extracts and deduplicates facts from the text
+        m.add(review_text, user_id=repo_id)
+    except Exception as e:
+        # Memory failure should never block a review
+        print(f" [memory] Warning: failed to save memory — {e}")

@@ -35,31 +35,44 @@ class ReviewState(TypedDict):
 
 
 def node_fetch(state: ReviewState) -> ReviewState:
+    print(
+        f"\n [rabbitai] Fetching PR #{state['pr_number']} from {state['repo_name']}")
     cfg = state["config"]
     pr = fetch_pr(cfg["github_token"], state["repo_name"], state["pr_number"])
+    print(
+        f" [rabbitai] Fetched PR with {len(pr.files_changed)} changed files and {len(pr.diff)} lines of diff")
     return {**state, "pr": pr}
 
 
 def node_graph(state: ReviewState) -> ReviewState:
+    print(
+        f"\n [rabbitai] Building dependency graph for PR #{state['pr_number']}...")
     pr = state["pr"]
     insight = build_dependency_graph(pr.files_changed, pr.diff)
+    print(f" [rabbitai] Graph insight: {insight.summary}")
     return {**state, "graph_insight": insight}
 
 
 def node_classify(state: ReviewState) -> ReviewState:
+    print(f"\n [rabbitai] Classifying changes for PR #{state['pr_number']}...")
     pr = state["pr"]
     result = classify_change(pr.title, pr.diff)
+    print(f" [rabbitai] Classification result: {result.change_type}")
     return {**state, "classification": result}
 
 
 def node_embed(state: ReviewState) -> ReviewState:
     pr = state["pr"]
-    pr_id = f"{pr.repo_name}#{pr.pr_number}"
+    pr_id = f"{pr.repo_name} #{pr.pr_number}"
+    print(f" [rabbitai] Embedding PR {pr_id}...")
     result = embed_and_store(pr.diff, pr_id, state["config"])
+    print(f" [rabbitai] Embed done — {result.chunks_stored} chunks stored")
     return {**state, "embed_result": result}
 
 
 def node_retrieve(state: ReviewState) -> ReviewState:
+    print(
+        f"\n [rabbitai] Retrieving relevant past reviews for PR #{state['pr_number']}...")
     pr = state["pr"]
     classification = state["classification"]
     pr_id = f"{pr.repo_name}#{pr.pr_number}"
@@ -70,15 +83,19 @@ def node_retrieve(state: ReviewState) -> ReviewState:
     )
 
     result = retrieve(query, pr_id, state["config"])
+    print(f" [rabbitai] Retrieved {result.total_found} relevant chunks")
     return {**state, "retrieval": result}
 
 
 def node_load_memory(state: ReviewState) -> ReviewState:
+    print(f"\n [rabbitai] Loading past learnings for {state['repo_name']}...")
     mem = load_memory(state["repo_name"], state["config"])
+    print(f" [rabbitai] Loaded memory with {len(mem.entries)} entries")
     return {**state, "memory": mem}
 
 
 def node_review(state: ReviewState) -> ReviewState:
+    print(f"\n [rabbitai] Reviewing PR #{state['pr_number']}...")
     result = review(
         pr=state["pr"],
         graph=state["graph_insight"],
@@ -87,22 +104,29 @@ def node_review(state: ReviewState) -> ReviewState:
         memory=state["memory"],
         config=state["config"],
     )
+    print(f" [rabbitai] Review completed for PR #{state['pr_number']}")
     return {**state, "review_result": result}
 
 
 def node_post(state: ReviewState) -> ReviewState:
+    print(
+        f"\n [rabbitai] Posting review comment for PR #{state['pr_number']}...")
     result = post_comment(
         review=state["review_result"],
         pr=state["pr"],
         config=state["config"],
     )
+    print(f" [rabbitai] Posted review comment for PR #{state['pr_number']}")
     return {**state, "post_result": result}
 
 
 def node_save_memory(state: ReviewState) -> ReviewState:
+    print(
+        f"\n [rabbitai] Saving learnings for {state['repo_name']}...")
     review_result = state["review_result"]
     if review_result:
         save_memory(state["repo_name"], review_result.raw, state["config"])
+    print(f" [rabbitai] Saved learnings for {state['repo_name']}")
     return state
 
 
@@ -135,6 +159,7 @@ def build_graph() -> StateGraph:
 
 
 def run(repo_name: str, pr_number: int, config_path: str = "config.yaml") -> PostResult:
+    print(f"[rabbitai] Starting review for {repo_name} PR #{pr_number}...")
     """
     Main entry point — called from GitHub Action, MCP server, or CLI.
 
@@ -170,4 +195,5 @@ def run(repo_name: str, pr_number: int, config_path: str = "config.yaml") -> Pos
     if result.comment_url:
         print(f"[rabbitai] comment → {result.comment_url}")
 
+    print(f"[rabbitai] Finished review for {repo_name} PR #{pr_number}")
     return result

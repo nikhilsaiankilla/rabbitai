@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import google.generativeai as genai
+from google import genai
 
+from memory.repo_memory import MemoryResult
 from nodes.fetcher import PRData, diff_summary
 from nodes.graph_builder import GraphInsight, format_for_prompt as graph_prompt
 from nodes.classifier import ClassificationResult, format_for_prompt as classify_prompt
@@ -87,31 +88,45 @@ def review(
     graph: GraphInsight,
     classification: ClassificationResult,
     retrieval: RetrievalResult,
+    memory: "MemoryResult | None",
     config: dict,
 ) -> ReviewResult:
-    """
-    Main function called by agent.py (Node 6).
+    llm_cfg = config.get("llm", {})
+    provider = llm_cfg.get("provider", "gemini").lower()
 
-    Args:
-        pr:             PRData from fetcher.py
-        graph:          GraphInsight from graph_builder.py
-        classification: ClassificationResult from classifier.py
-        retrieval:      RetrievalResult from retriever.py
-        config:         parsed config.yaml dict
+    if provider == "gemini":
+        from google import genai
+        client = genai.Client(api_key=config["gemini_api_key"])
+        model = llm_cfg.get("model") or "gemini-2.0-flash"
 
-    Returns:
-        ReviewResult with raw Gemini response and parsed score
-    """
-    genai.configure(api_key=config["gemini_api_key"])
-    model = genai.GenerativeModel("gemini-2.0-flash")
+        repo_context = memory.context if (memory and memory.context) else config.get(
+            "memory", {}).get("repo_context", "")
+        prompt = _build_prompt(pr, graph, classification,
+                               retrieval, repo_context, config)
 
-    repo_context = config.get("memory", {}).get("repo_context", "")
+        response = client.models.generate_content(model=model, contents=prompt)
+        raw = response.text.strip()
 
-    prompt = _build_prompt(pr, graph, classification,
-                           retrieval, repo_context, config)
+    elif provider == "openai":
+        from openai import OpenAI
+        api_key = llm_cfg.get("api_key") or config.get("openai_api_key")
+        client = OpenAI(api_key=api_key)
+        model = llm_cfg.get("model") or "gpt-4o-mini"
 
-    response = model.generate_content(prompt)
-    raw = response.text.strip()
+        repo_context = memory.context if (memory and memory.context) else config.get(
+            "memory", {}).get("repo_context", "")
+        prompt = _build_prompt(pr, graph, classification,
+                               retrieval, repo_context, config)
+
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = response.choices[0].message.content.strip()
+
+    else:
+        raise ValueError(
+            f"Unknown LLM provider: '{provider}'. Supported: gemini, openai")
 
     pr_id = f"{pr.repo_name}#{pr.pr_number}"
 

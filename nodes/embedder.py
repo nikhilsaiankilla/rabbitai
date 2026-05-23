@@ -25,10 +25,11 @@ import hashlib
 import time
 from dataclasses import dataclass, field
 
-import google.generativeai as genai
-
+from google import genai
 
 # Data types
+
+
 @dataclass
 class DiffChunk:
     chunk_id: str           # sha256 of (pr_id + filename + content)
@@ -110,31 +111,52 @@ def _chunk_diff_by_file(diff: str, pr_id: str) -> list[DiffChunk]:
 
 
 # Embedding via Gemini
-def _embed_texts(texts: list[str], api_key: str) -> list[list[float]]:
-    """
-    Embed a list of texts using Gemini text-embedding-004.
-    Returns list of float vectors.
-    """
-    genai.configure(api_key=api_key)
-    vectors = []
-    for text in texts:
-        result = genai.embed_content(
-            model="models/text-embedding-004",
-            content=text,
-            task_type="retrieval_document",
-        )
-        vectors.append(result["embedding"])
-        time.sleep(0.1)   # stay within free-tier rate limits
-    return vectors
+def _embed_texts(texts: list[str], config: dict) -> list[list[float]]:
+    embed_cfg = config.get("embedding", {})
+    provider = embed_cfg.get("provider", "gemini").lower()
 
+    if provider == "gemini":
+        from google import genai
+        api_key = config["gemini_api_key"]
+        model = embed_cfg.get("model") or "models/gemini-embedding-001"
+        client = genai.Client(api_key=api_key, http_options={"api_version": "v1"})
+        vectors = []
+        for text in texts:
+            result = client.models.embed_content(model=model, contents=text)
+            vectors.append(list(result.embeddings[0].values))
+            time.sleep(0.1)
+        return vectors
 
-# ── Vector store backends 
+    elif provider == "openai":
+        from openai import OpenAI
+        api_key = embed_cfg.get("api_key")
+        model = embed_cfg.get("model") or "text-embedding-3-small"
+        client = OpenAI(api_key=api_key)
+        vectors = []
+        for text in texts:
+            response = client.embeddings.create(model=model, input=text)
+            vectors.append(response.data[0].embedding)
+        return vectors
+
+    else:
+        raise ValueError(f"Unknown embedding provider: '{provider}'. Supported: gemini, openai")
+
 def _get_chromadb_collection(cfg: dict):
     import chromadb
     path = cfg.get("path", "./chroma_db")
-    client = chromadb.PersistentClient(path=path)
-    collection_name = cfg.get("collection", "pr-chunks")
-    return client.get_or_create_collection(collection_name)
+    print(f" [debug] initializing ChromaDB at path: {path}")
+    try:
+        client = chromadb.PersistentClient(path=path)
+        print(f" [debug] ChromaDB client created")
+        collection_name = cfg.get("collection", "pr-chunks")
+        collection = client.get_or_create_collection(collection_name)
+        print(f" [debug] collection '{collection_name}' ready")
+        return collection
+    except Exception as e:
+        import traceback
+        print(f" [debug] ChromaDB CRASH: {e}")
+        traceback.print_exc()
+        raise
 
 
 def _get_pinecone_index(cfg: dict):
@@ -153,18 +175,21 @@ def _get_qdrant_client(cfg: dict):
 
 
 def _store_chromadb(collection, chunks: list[DiffChunk], vectors: list[list[float]]) -> int:
-    existing = set(collection.get(ids=[c.chunk_id for c in chunks])["ids"])
-    new_chunks = [(c, v) for c, v in zip(chunks, vectors)
-                  if c.chunk_id not in existing]
-    if not new_chunks:
-        return 0
-    collection.add(
-        ids=[c.chunk_id for c, _ in new_chunks],
-        embeddings=[v for _, v in new_chunks],
-        documents=[c.content for c, _ in new_chunks],
-        metadatas=[c.metadata for c, _ in new_chunks],
-    )
-    return len(new_chunks)
+    print(" [debug] inside _store_chromadb, upserting directly...")
+    try:
+        collection.upsert(
+            ids=[c.chunk_id for c in chunks],
+            embeddings=[list(v) for v in vectors],
+            documents=[c.content for c in chunks],
+            metadatas=[c.metadata for c in chunks],
+        )
+        print(f" [debug] upserted {len(chunks)} chunks successfully")
+        return len(chunks)
+    except Exception as e:
+        print(f" [debug] upsert crashed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 def _store_pinecone(index, chunks: list[DiffChunk], vectors: list[list[float]], namespace: str) -> int:
@@ -221,11 +246,12 @@ def embed_and_store(
     Returns:
         EmbedResult with storage stats
     """
-    gemini_api_key: str = config["gemini_api_key"]
     vs_cfg: dict = config.get("vector_store", {})
     provider: str = vs_cfg.get("provider", "chromadb").lower()
     collection_name: str = vs_cfg.get("collection", "pr-chunks")
 
+    print(
+        f" [embedder] Starting embed_and_store for PR {pr_id} using provider '{provider}'")
     # 1. Chunk
     chunks = _chunk_diff_by_file(diff, pr_id)
     if not chunks:
@@ -234,17 +260,25 @@ def embed_and_store(
             pr_id=pr_id, skipped=0, chunk_ids=[],
         )
 
+    print(f" [embedder] Chunked diff into {len(chunks)} file(s)")
     # 2. Embed
     texts = [c.content for c in chunks]
-    vectors = _embed_texts(texts, gemini_api_key)
+    vectors = _embed_texts(texts, config)
 
+    print(
+        f" [embedder] Embedded chunks into vectors (first vector sample: {vectors[0][:5]}...)")
     # 3. Store
     stored = 0
     skipped = len(chunks)
 
     if provider == "chromadb":
+        print(" [debug] getting chromadb collection...")
         collection = _get_chromadb_collection(vs_cfg)
+        print(
+            f" [debug] collection ready, calling _store_chromadb with {len(chunks)} chunks and {len(vectors)} vectors")
+        print(f" [debug] first vector length: {len(vectors[0])}")
         stored = _store_chromadb(collection, chunks, vectors)
+        print(f" [debug] _store_chromadb returned: {stored}")
 
     elif provider == "pinecone":
         index = _get_pinecone_index(vs_cfg)
@@ -261,7 +295,13 @@ def embed_and_store(
             "Supported: chromadb, pinecone, qdrant"
         )
 
+    print(
+        f" [embedder] Stored {stored} new chunk(s) in '{collection_name}' collection/namespace")
+
     skipped = len(chunks) - stored
+
+    print(
+        f" [embedder] Skipped {skipped} existing chunk(s) in '{collection_name}' collection/namespace")
 
     return EmbedResult(
         chunks_stored=stored,

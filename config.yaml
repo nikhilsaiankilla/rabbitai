@@ -1,80 +1,124 @@
-# RabbitAI config
-# Copy this to config.yaml and fill in your values.
+# RabbitAI — config.example.yaml
+#
+# Copy this file to config.yaml and fill in your values.
 # config.yaml is gitignored — never commit it.
-# In GitHub Actions, secrets are injected via env vars automatically.
+#
+# In GitHub Actions, all values are injected via repository secrets.
+# config.yaml is not needed in CI — only for local development.
+
+# Authentication
 
 # GitHub Personal Access Token
-# Only needed for LOCAL testing — GitHub Actions injects GITHUB_TOKEN automatically
-# Get one at: github.com → Settings → Developer settings → Personal access tokens → classic
-# Required scope: repo
-github_token: "ghp_xxx"
+# Required scope: repo (full control of private repositories)
+# Only needed for local development.
+# GitHub Actions injects GITHUB_TOKEN automatically — do not add it as a secret.
+# Generate at: github.com → Settings → Developer settings → Personal access tokens → Tokens (classic)
+github_token: ""
 
-# Gemini API key — free at aistudio.google.com
-# Used for: embeddings (text-embedding-004) + review generation (gemini-2.0-flash)
-gemini_api_key: "xxx"
+# Gemini API key
+# Required if embedding.provider or llm.provider is set to "gemini".
+# Free tier available at: aistudio.google.com
+gemini_api_key: ""
 
-# Vector Store — where diff chunks are embedded and stored
+# Vector Store
+# Stores embedded PR diff chunks for semantic retrieval (RAG pipeline).
+# Supported providers: chromadb | pinecone | qdrant
+
 vector_store:
-  # Supported: chromadb | pinecone | qdrant
-  # chromadb is local and free — recommended for getting started
-  provider: "chromadb"
+  # ── ChromaDB (local, free — recommended for getting started)
+  # No API key required. Data persists in a local folder.
+  # provider: "chromadb"
+  # path: "./chroma_db"
+  # collection: "pr-chunks"
 
-  # chromadb only — local folder where the DB is persisted
-  path: "./chroma_db"
-
-  # Name of the collection inside the vector store
+  # Pinecone (cloud)
+  # Create a free index at app.pinecone.io
+  # Index dimensions must match your embedding model output:
+  #   gemini-embedding-001     → 768
+  #   text-embedding-3-small   → 1536
+  #   text-embedding-3-large   → 3072
+  provider: "pinecone"
+  api_key: ""
+  index_name: "rabbitai"
   collection: "pr-chunks"
 
-  # Cloud provider credentials — uncomment based on your provider
-
-  # Pinecone:
-  # provider: "pinecone"
-  # api_key: "xxx"
-  # index_name: "code-review"
-
-  # Qdrant self-hosted:
+  # Qdrant (self-hosted)
   # provider: "qdrant"
   # host: "localhost"
   # port: 6333
+  # collection: "pr-chunks"
 
-  # Qdrant cloud:
+  # Qdrant (cloud)
   # provider: "qdrant"
   # host: "https://your-cluster.qdrant.io"
-  # api_key: "xxx"
+  # api_key: ""
+  # collection: "pr-chunks"
 
-# Memory — persistent context across PR reviews
+# Embedding Model
+# Controls how PR diff chunks are embedded before storage and retrieval.
+# Must match the dimension of your vector store index.
+# Supported providers: gemini | openai
+
+embedding:
+  provider: "openai"
+  model: "text-embedding-3-small" # outputs 1536 dims
+  api_key: "" # required for openai; gemini uses gemini_api_key above
+
+  # Gemini alternative (768 dims — use with a 768-dim vector store index):
+  # provider: "gemini"
+  # model: "models/gemini-embedding-001"
+
+# LLM (Review Generation)
+# Controls which model generates the actual code review.
+# Supported providers: gemini | openai
+
+llm:
+  provider: "openai"
+  model: "gpt-4.1-mini" # fast, low cost, strong at code review
+  api_key: "" # required for openai; gemini uses gemini_api_key above
+
+  # Gemini alternative:
+  # provider: "gemini"
+  # model: "gemini-2.0-flash"
+
+# Memory
+# Persistent memory across PR reviews using mem0.
+# RabbitAI learns repo conventions, recurring issues, and patterns over time.
+
 memory:
-  # Set to false to disable persistent memory entirely
-  # When disabled, only repo_context below is used (static)
+  # Set to false to disable persistent memory.
+  # When disabled, only repo_context below is used (static, injected every review).
   enabled: true
 
-  # Static context injected into every review prompt
-  # Describe your repo so RabbitAI understands it from day one
-  # The more detail here, the better the first few reviews will be
+  # Static context injected into every review prompt from day one.
+  # Describe your repo so RabbitAI understands it before seeing any PRs.
+  # The more detail you provide here, the better the early reviews will be.
   repo_context: |
-    Describe your repo here.
-    Example: This repo uses Next.js 15, Drizzle ORM, TypeScript strict mode,
-    Supabase Auth, and Vercel deployment. Prefer functional components.
-    No class components. All API routes are in app/api using Route Handlers.
+    Replace this with a description of your repository.
+    Example: This is a Next.js 15 application using Drizzle ORM, TypeScript strict mode,
+    Supabase Auth, and Vercel for deployment. Prefer functional React components.
+    No class components. All API routes use Next.js App Router Route Handlers.
 
-# Review behaviour
+# Review Behaviour
+
 review:
-  # Primary language of your repo
-  # Used to give Gemini language-specific context
-  # Examples: typescript, python, go, rust, java
+  # Primary language of the repository.
+  # Used to give the LLM language-specific context during review.
+  # Examples: typescript | python | go | rust | java
   language: "typescript"
 
-  # What to focus the review on
-  # Supported: bugs, security, performance, design, tests, docs
+  # Areas to focus the review on.
+  # Supported values: bugs | security | performance | design | tests | docs
   focus:
     - bugs
     - security
     - performance
 
-  # Skip posting the comment if the PR scores ABOVE this threshold
-  # e.g. min_risk_score: 8 means only post if score is 8 or below (has issues)
-  # Set to 0 to always post regardless of score
+  # Minimum risk threshold for posting a comment.
+  # RabbitAI skips posting if the PR score is ABOVE this value.
+  # A score of 8/10 means the PR is mostly good — you may not want a comment for that.
+  # Set to 0 to always post regardless of score.
   min_risk_score: 6
 
-  # Whether to show the 1-10 score in the PR comment
+  # Whether to include the 1–10 quality score in the posted PR comment.
   post_score: true

@@ -11,7 +11,8 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
-import google.generativeai as genai
+from dataclasses_json import config
+from google import genai
 
 
 @dataclass
@@ -30,15 +31,29 @@ class RetrievalResult:
     total_found: int
 
 
-def _embed_query(query: str, api_key: str) -> list[float]:
-    genai.configure(api_key=api_key)
-    time.sleep(0.1)
-    result = genai.embed_content(
-        model="models/text-embedding-004",
-        content=query,
-        task_type="retrieval_query",
-    )
-    return result["embedding"]
+def _embed_query(query: str, config: dict) -> list[float]:
+    embed_cfg = config.get("embedding", {})
+    provider = embed_cfg.get("provider", "gemini").lower()
+
+    if provider == "gemini":
+        from google import genai
+        api_key = config["gemini_api_key"]
+        model = embed_cfg.get("model", "models/gemini-embedding-001")
+        client = genai.Client(api_key=api_key, http_options={
+                              "api_version": "v1"})
+        result = client.models.embed_content(model=model, contents=query)
+        return list(result.embeddings[0].values)
+
+    elif provider == "openai":
+        from openai import OpenAI
+        api_key = embed_cfg.get("api_key") or config.get("openai_api_key")
+        model = embed_cfg.get("model", "text-embedding-3-small")
+        client = OpenAI(api_key=api_key)
+        response = client.embeddings.create(model=model, input=query)
+        return response.data[0].embedding
+
+    else:
+        raise ValueError(f"Unknown embedding provider: '{provider}'")
 
 
 def _query_chromadb(cfg: dict, vector: list[float], pr_id: str, top_k: int) -> list[RetrievedChunk]:
@@ -138,11 +153,10 @@ def retrieve(
     Returns:
         RetrievalResult with ranked chunks
     """
-    gemini_api_key: str = config["gemini_api_key"]
     vs_cfg: dict = config.get("vector_store", {})
     provider: str = vs_cfg.get("provider", "chromadb").lower()
 
-    vector = _embed_query(query, gemini_api_key)
+    vector = _embed_query(query, config)
 
     if provider == "chromadb":
         chunks = _query_chromadb(vs_cfg, vector, pr_id, top_k)
