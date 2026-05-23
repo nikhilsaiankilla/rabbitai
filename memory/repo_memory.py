@@ -102,7 +102,7 @@ def load_memory(repo_name: str, config: dict) -> MemoryResult:
         m = _get_client(config)
         results = m.search(
             query="repo conventions patterns recurring issues code style",
-            user_id=repo_id,
+            filters={"user_id": repo_id},
             limit=10,
         )
     except Exception as e:
@@ -143,7 +143,7 @@ def save_memory(repo_name: str, review_text: str, config: dict) -> None:
     try:
         m = _get_client(config)
         # mem0 automatically extracts and deduplicates facts from the text
-        m.add(review_text, user_id=repo_id)
+        m.add(review_text, filters={"user_id": repo_id})
     except Exception as e:
         # Memory failure should never block a review
         print(f" [memory] Warning: failed to save memory — {e}")

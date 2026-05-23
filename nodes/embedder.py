@@ -144,17 +144,13 @@ def _embed_texts(texts: list[str], config: dict) -> list[list[float]]:
 def _get_chromadb_collection(cfg: dict):
     import chromadb
     path = cfg.get("path", "./chroma_db")
-    print(f" [debug] initializing ChromaDB at path: {path}")
     try:
         client = chromadb.PersistentClient(path=path)
-        print(f" [debug] ChromaDB client created")
         collection_name = cfg.get("collection", "pr-chunks")
         collection = client.get_or_create_collection(collection_name)
-        print(f" [debug] collection '{collection_name}' ready")
         return collection
     except Exception as e:
         import traceback
-        print(f" [debug] ChromaDB CRASH: {e}")
         traceback.print_exc()
         raise
 
@@ -175,7 +171,6 @@ def _get_qdrant_client(cfg: dict):
 
 
 def _store_chromadb(collection, chunks: list[DiffChunk], vectors: list[list[float]]) -> int:
-    print(" [debug] inside _store_chromadb, upserting directly...")
     try:
         collection.upsert(
             ids=[c.chunk_id for c in chunks],
@@ -183,10 +178,8 @@ def _store_chromadb(collection, chunks: list[DiffChunk], vectors: list[list[floa
             documents=[c.content for c in chunks],
             metadatas=[c.metadata for c in chunks],
         )
-        print(f" [debug] upserted {len(chunks)} chunks successfully")
         return len(chunks)
     except Exception as e:
-        print(f" [debug] upsert crashed: {e}")
         import traceback
         traceback.print_exc()
         raise
@@ -272,13 +265,8 @@ def embed_and_store(
     skipped = len(chunks)
 
     if provider == "chromadb":
-        print(" [debug] getting chromadb collection...")
         collection = _get_chromadb_collection(vs_cfg)
-        print(
-            f" [debug] collection ready, calling _store_chromadb with {len(chunks)} chunks and {len(vectors)} vectors")
-        print(f" [debug] first vector length: {len(vectors[0])}")
         stored = _store_chromadb(collection, chunks, vectors)
-        print(f" [debug] _store_chromadb returned: {stored}")
 
     elif provider == "pinecone":
         index = _get_pinecone_index(vs_cfg)
