@@ -1,8 +1,7 @@
 """
 Node 7 — Poster
 Formats the review result and posts it as a GitHub PR comment.
-Cleans up the SCORE line from the visible comment if post_score is false.
-Skips posting if the score is below min_risk_score.
+Skips posting if the PR score exceeds min_risk_score threshold.
 """
 
 from __future__ import annotations
@@ -10,20 +9,21 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from github import Github, GithubException
+from github import Auth, Github, GithubException
 
-from nodes.reviewer import ReviewResult
 from nodes.fetcher import PRData
+from nodes.reviewer import ReviewResult
 
 
 @dataclass
 class PostResult:
     posted: bool
     comment_url: str | None
-    reason: str             # why it was posted or skipped
+    reason: str
 
 
 def _strip_score_line(text: str) -> str:
+    """Remove the raw SCORE line from the review body to avoid duplication in the header."""
     return re.sub(r"\nSCORE:\s*\d+\s*/\s*10\s*$", "", text, flags=re.IGNORECASE).strip()
 
 
@@ -31,20 +31,29 @@ def _format_comment(review: ReviewResult, pr: PRData, config: dict) -> str:
     review_cfg = config.get("review", {})
     post_score = review_cfg.get("post_score", True)
 
-    body = review.raw
+    body = _strip_score_line(review.raw)
 
-    header_parts = [
-        "🤖 **AI Code Review** · powered by [ai-code-reviewer](https://github.com/nikhilsaiankilla/ai-code-reviewer)"]
+    # Header
+    logo = "![RabbitAI](https://raw.githubusercontent.com/nikhilsaiankilla/rabbitai/main/assets/rabbitai.png)"
+    title = "**RabbitAI Code Review**"
 
     if post_score and review.score is not None:
-        header_parts.append(f"📊 **Score: {review.score}/10**")
-        # Remove the raw SCORE line from the body so it doesn't duplicate
-        body = _strip_score_line(body)
+        score_badge = f"📊 **{review.score}/10**"
+        header = f"{logo} {title} &nbsp;·&nbsp; {score_badge}"
     else:
-        body = _strip_score_line(body)
+        header = f"{logo} {title}"
 
-    header = "  ·  ".join(header_parts)
-    footer = "\n\n---\n*Self-hosted · ai-code-reviewer · MIT License*"
+    # Footer
+    footer = (
+        "\n\n---\n"
+        "<sub>"
+        "🐇 [RabbitAI](https://github.com/nikhilsaiankilla/rabbitai) "
+        "&nbsp;·&nbsp; "
+        "AI-powered code review "
+        "&nbsp;·&nbsp; "
+        "MIT License"
+        "</sub>"
+    )
 
     return f"{header}\n\n{body}{footer}"
 
@@ -56,6 +65,10 @@ def post_comment(
 ) -> PostResult:
     """
     Main function called by agent.py (Node 7).
+    Formats and posts the review as a GitHub PR comment.
+
+    Skips posting if the PR score is above min_risk_score
+    (high score = good PR, no comment needed).
 
     Args:
         review: ReviewResult from reviewer.py
@@ -63,22 +76,26 @@ def post_comment(
         config: parsed config.yaml dict
 
     Returns:
-        PostResult indicating whether the comment was posted
+        PostResult with posted status, comment URL, and reason
     """
     review_cfg = config.get("review", {})
     min_risk_score = review_cfg.get("min_risk_score", 0)
 
-    if review.score is not None and review.score < min_risk_score:
+    # Skip if PR is high quality and below the risk threshold
+    if review.score is not None and min_risk_score > 0 and review.score > min_risk_score:
         return PostResult(
             posted=False,
             comment_url=None,
-            reason=f"Score {review.score}/10 is below min_risk_score {min_risk_score} — skipping comment",
+            reason=(
+                f"Score {review.score}/10 exceeds min_risk_score threshold of "
+                f"{min_risk_score} — PR looks good, skipping comment."
+            ),
         )
 
     comment_body = _format_comment(review, pr, config)
 
     try:
-        g = Github(config["github_token"])
+        g = Github(auth=Auth.Token(config["github_token"]))
         repo = g.get_repo(pr.repo_name)
         pull = repo.get_pull(pr.pr_number)
         comment = pull.create_issue_comment(comment_body)
@@ -90,5 +107,5 @@ def post_comment(
     return PostResult(
         posted=True,
         comment_url=comment.html_url,
-        reason="Review posted successfully",
+        reason="Review posted successfully.",
     )
