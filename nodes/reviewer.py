@@ -67,7 +67,11 @@ INSTRUCTIONS
 - Language: {language}
 - Focus on: {focus_str}
 - Be specific — include filename and line number for every issue
-- Group findings by severity: 🔴 Bugs, 🟠 Security, 🟡 Performance, 🟢 Looks good
+- Group findings by severity using these exact headers:
+  [BUG] for bugs and logic errors
+  [SECURITY] for security vulnerabilities
+  [PERFORMANCE] for performance issues
+  [GOOD] for positive notes worth calling out
 - Keep suggestions concise and actionable
 - If no issues found in a category, skip that category
 {score_instruction}
