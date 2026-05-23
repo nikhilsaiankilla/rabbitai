@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from turtle import title
 
 from github import Auth, Github, GithubException
 
@@ -34,12 +35,11 @@ def _format_comment(review: ReviewResult, pr: PRData, config: dict) -> str:
     body = _strip_score_line(review.raw)
 
     # Header
-    logo = "![RabbitAI](https://raw.githubusercontent.com/nikhilsaiankilla/rabbitai/main/assets/rabbitai.png)"
+    logo = '<img src="https://raw.githubusercontent.com/nikhilsaiankilla/rabbitai/main/assets/rabbitai.png" width="20" height="20" alt="RabbitAI" style="vertical-align:middle;">'
     title = "**RabbitAI Code Review**"
 
     if post_score and review.score is not None:
-        score_badge = f"📊 **{review.score}/10**"
-        header = f"{logo} {title} &nbsp;·&nbsp; {score_badge}"
+        header = f"{logo} {title} &nbsp;·&nbsp; 📊 **{review.score}/10**"
     else:
         header = f"{logo} {title}"
 
@@ -52,6 +52,8 @@ def _format_comment(review: ReviewResult, pr: PRData, config: dict) -> str:
         "AI-powered code review "
         "&nbsp;·&nbsp; "
         "MIT License"
+        "&nbsp;·&nbsp; "
+        "[Nikhil](https://x.com/itzznikhilsai) "
         "</sub>"
     )
 

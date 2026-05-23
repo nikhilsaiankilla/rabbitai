@@ -2,7 +2,7 @@ name: RabbitAI Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened] # synchronize = new commit pushed to PR
 
 jobs:
   review:
