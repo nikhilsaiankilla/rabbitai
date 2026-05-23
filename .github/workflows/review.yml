@@ -21,19 +21,15 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Cache pip dependencies
-        id: cache-pip
+      - name: Cache pip
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cache/pip
-            ~/.local/lib/python3.11/site-packages
+          path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
       - name: Install dependencies
-        if: steps.cache-pip.outputs.cache-hit != 'true'
         run: pip install -r requirements.txt
 
       - name: Run RabbitAI
@@ -50,7 +46,6 @@ jobs:
           LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
           LLM_MODEL: ${{ vars.LLM_MODEL }}
           REVIEW_LANGUAGE: ${{ vars.REVIEW_LANGUAGE }}
-          MIN_RISK_SCORE: ${{ vars.MIN_RISK_SCORE }}
         run: |
           python -c "
           import os
