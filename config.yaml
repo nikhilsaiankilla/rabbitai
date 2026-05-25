@@ -118,7 +118,7 @@ review:
   # RabbitAI skips posting if the PR score is ABOVE this value.
   # A score of 8/10 means the PR is mostly good — you may not want a comment for that.
   # Set to 0 to always post regardless of score.
-  min_risk_score: 6
+  min_risk_score: 3
 
   # Whether to include the 1–10 quality score in the posted PR comment.
   post_score: true

@@ -20,6 +20,9 @@ class MemoryResult:
     entries: list[str]  # raw memory entries retrieved
     repo_id: str        # user_id used in mem0 — derived from repo name
 
+# wantedly pushed bug to check rabbitai error 
+def divide(a, b):
+    return a / b  # no zero division check
 
 def _get_client(config: dict) -> Memory:
     """
