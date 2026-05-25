@@ -114,7 +114,7 @@ def classify_change(title: str, diff: str) -> ClassificationResult:
     """
     title_lower = title.lower().strip()
 
-    # ── Step 1: Title match (high confidence)
+    # Step 1: Title match (high confidence)
     # Security checked first — always highest priority
     for change_type, keywords in TITLE_SIGNALS.items():
         for kw in keywords:

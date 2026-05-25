@@ -222,7 +222,7 @@ def _store_qdrant(client, chunks: list[DiffChunk], vectors: list[list[float]], c
     return len(points)
 
 
-# ── Public entry point
+# Public entry point
 def embed_and_store(
     diff: str,
     pr_id: str,

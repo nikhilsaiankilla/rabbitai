@@ -101,7 +101,7 @@ def build_dependency_graph(
     for f in files_changed:
         G.add_node(f)
 
-    # ── Parse the diff to extract import relationships
+    # Parse the diff to extract import relationships
     current_file: str | None = None
 
     for line in diff.splitlines():
@@ -137,7 +137,7 @@ def build_dependency_graph(
                     G.add_node(normalized)
                 G.add_edge(current_file, normalized)
 
-    # ── Compute blast radius for each changed file
+    # Compute blast radius for each changed file
     # Blast radius = how many nodes in the graph import THIS file
     # i.e. in-degree when edges are reversed (dependents, not dependencies)
     dependents_map: dict[str, int] = {}
@@ -167,7 +167,7 @@ def build_dependency_graph(
         elif total_dependents >= MEDIUM_RISK_THRESHOLD:
             medium_risk_files.append(f)
 
-    # ── Determine overall risk level
+    # Determine overall risk level
     if high_risk_files:
         risk_level = "HIGH"
     elif medium_risk_files:
@@ -175,26 +175,26 @@ def build_dependency_graph(
     else:
         risk_level = "LOW"
 
-    # ── Build summary for the review prompt
+    # Build summary for the review prompt
     summary_parts = []
 
     if high_risk_files:
         file_list = ", ".join(f"`{f}`" for f in high_risk_files)
         summary_parts.append(
-            f"🔴 HIGH BLAST RADIUS: {file_list} — "
+            f"HIGH BLAST RADIUS: {file_list} — "
             f"each has {high_risk_threshold}+ dependents. Changes here can break a lot."
         )
 
     if medium_risk_files:
         file_list = ", ".join(f"`{f}`" for f in medium_risk_files)
         summary_parts.append(
-            f"🟡 MEDIUM BLAST RADIUS: {file_list} — "
+            f"MEDIUM BLAST RADIUS: {file_list} — "
             f"a few files depend on these, review carefully."
         )
 
     if not high_risk_files and not medium_risk_files:
         summary_parts.append(
-            "🟢 LOW BLAST RADIUS: changed files appear to be isolated. "
+            "LOW BLAST RADIUS: changed files appear to be isolated. "
             "Risk of cascading breakage is low."
         )
 
@@ -208,7 +208,7 @@ def build_dependency_graph(
 
     summary = "\n".join(summary_parts)
 
-    # ── Graph stats
+    # Graph stats
     stats = {
         "total_nodes": G.number_of_nodes(),
         "total_edges": G.number_of_edges(),
