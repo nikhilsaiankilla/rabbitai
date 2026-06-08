@@ -12,8 +12,10 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-
+from dotenv import load_dotenv
 import yaml
+
+load_dotenv()
 
 
 def load_config(path: str = "config.yaml") -> dict:

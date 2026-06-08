@@ -9,15 +9,15 @@ from typing import TypedDict
 
 from langgraph.graph import StateGraph, END
 
-from nodes.fetcher import PRData, fetch_pr
-from nodes.graph_builder import GraphInsight, build_dependency_graph
-from nodes.classifier import ClassificationResult, classify_change
-from nodes.embedder import EmbedResult, embed_and_store
-from nodes.retriever import RetrievalResult, retrieve
-from nodes.reviewer import ReviewResult, review
-from nodes.poster import PostResult, post_comment
-from memory.repo_memory import MemoryResult, load_memory, save_memory
-from utils.config import load_config
+from rabbitai.nodes.fetcher import PRData, fetch_pr
+from rabbitai.nodes.graph_builder import GraphInsight, build_dependency_graph
+from rabbitai.nodes.classifier import ClassificationResult, classify_change
+from rabbitai.nodes.embedder import EmbedResult, embed_and_store
+from rabbitai.nodes.retriever import RetrievalResult, retrieve
+from rabbitai.nodes.reviewer import ReviewResult, review
+from rabbitai.nodes.poster import PostResult, post_comment
+from rabbitai.memory.repo_memory import MemoryResult, load_memory, save_memory
+from rabbitai.utils.config import load_config
 
 
 class ReviewState(TypedDict):

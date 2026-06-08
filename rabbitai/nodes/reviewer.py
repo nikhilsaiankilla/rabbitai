@@ -10,11 +10,11 @@ from dataclasses import dataclass
 
 from google import genai
 
-from memory.repo_memory import MemoryResult
-from nodes.fetcher import PRData, diff_summary
-from nodes.graph_builder import GraphInsight, format_for_prompt as graph_prompt
-from nodes.classifier import ClassificationResult, format_for_prompt as classify_prompt
-from nodes.retriever import RetrievalResult, format_for_prompt as retrieval_prompt
+from rabbitai.memory.repo_memory import MemoryResult
+from rabbitai.nodes.fetcher import PRData, diff_summary
+from rabbitai.nodes.graph_builder import GraphInsight, format_for_prompt as graph_prompt
+from rabbitai.nodes.classifier import ClassificationResult, format_for_prompt as classify_prompt
+from rabbitai.nodes.retriever import RetrievalResult, format_for_prompt as retrieval_prompt
 
 
 @dataclass

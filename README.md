@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/banner.png" alt="RabbitAI" width="100%" />
+  <img src="./assets/banner.png" alt="RabbitAI Banner" width="100%" />
 </p>
 
 <h1 align="center">RabbitAI — AI Code Reviewer</h1>
@@ -9,23 +9,24 @@
 </p>
 
 <p align="center">
+  <a href="https://pypi.org/project/rabbitai-reviewer"><img src="https://img.shields.io/pypi/v/rabbitai-reviewer.svg" alt="PyPI" /></a>
   <a href="https://github.com/nikhilsaiankilla/rabbitai/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License" /></a>
   <a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.11-blue.svg" alt="Python 3.11" /></a>
   <a href="https://langchain-ai.github.io/langgraph"><img src="https://img.shields.io/badge/LangGraph-agent-purple.svg" alt="LangGraph" /></a>
   <a href="https://aistudio.google.com"><img src="https://img.shields.io/badge/Gemini-free%20tier-orange.svg" alt="Gemini" /></a>
+  <a href="https://github.com/nikhilsaiankilla/rabbitai/stargazers"><img src="https://img.shields.io/github/stars/nikhilsaiankilla/rabbitai?style=social" alt="GitHub Stars" /></a>
 </p>
-
 ---
 
 ## What is RabbitAI?
 
-RabbitAI is an open-source AI code reviewer. Drop one workflow file into any repo and it reviews every PR automatically — catching bugs, security issues, and performance problems — and posts a structured comment directly on the PR.
+RabbitAI is an open-source AI code reviewer. Drop one workflow file into any repo and it reviews every PR automatically catching bugs, security issues, and performance problems — and posts a structured comment directly on the PR.
 
 Unlike other code reviewers, RabbitAI:
 
 - Builds a **knowledge graph** of your codebase to detect blast radius of changes
 - Uses **mem0 persistent memory** to get smarter with every PR it reviews
-- Supports **Gemini and OpenAI** for both LLM and embeddings — fully config-driven
+- Supports **Gemini and OpenAI** for both LLM and embeddings fully config-driven
 - Supports **ChromaDB, Pinecone, and Qdrant** as vector stores
 - Runs as a **GitHub Action**, **MCP server** inside Claude/Cursor, or **local CLI**
 - Runs **completely free** using Gemini free tier + local ChromaDB
@@ -41,7 +42,7 @@ RabbitAI Code Review  ·  7/10
 auth.ts line 23: user.id can be undefined if session expires before check
 
 [SECURITY]
-db.ts line 45: query is not parameterized — SQL injection risk
+db.ts line 45: query is not parameterized SQL injection risk
 
 [PERFORMANCE]
 dashboard.tsx line 89: value recalculated on every render, consider useMemo
@@ -50,10 +51,10 @@ dashboard.tsx line 89: value recalculated on every render, consider useMemo
 Error boundaries correctly implemented throughout
 TypeScript types well-defined across all components
 
-Note: db.ts has 12 dependents — this change is marked HIGH BLAST RADIUS
+Note: db.ts has 12 dependents this change is marked HIGH BLAST RADIUS
 
 ---
-RabbitAI · AI-powered code review · MIT License
+🐇 RabbitAI · AI-powered code review · MIT License
 ```
 
 ---
@@ -91,29 +92,24 @@ on:
 jobs:
   review:
     runs-on: ubuntu-latest
+
     permissions:
       pull-requests: write
       contents: read
+
     steps:
-      - name: Checkout RabbitAI
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          repository: nikhilsaiankilla/rabbitai
-          path: rabbitai
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('rabbitai/requirements.txt') }}
-
-      - name: Install dependencies
-        run: pip install -r rabbitai/requirements.txt
+      - name: Install RabbitAI
+        run: pip install rabbitai-reviewer
 
       - name: Run RabbitAI
         env:
@@ -125,66 +121,38 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           VECTOR_STORE_PROVIDER: ${{ vars.VECTOR_STORE_PROVIDER }}
           EMBEDDING_PROVIDER: ${{ vars.EMBEDDING_PROVIDER }}
+          EMBEDDING_MODEL: ${{ vars.EMBEDDING_MODEL }}
           LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
           LLM_MODEL: ${{ vars.LLM_MODEL }}
           REVIEW_LANGUAGE: ${{ vars.REVIEW_LANGUAGE }}
         run: |
-          cd rabbitai
           python -c "
           import os
-          from agent import run
+          from rabbitai.agent import run
           result = run(os.environ['GITHUB_REPOSITORY'], int(os.environ['PR_NUMBER']))
           print(result.comment_url if result.posted else result.reason)
           "
 ```
 
-Add `GEMINI_API_KEY` to your repo secrets — get one free at [aistudio.google.com](https://aistudio.google.com).
+Add `GEMINI_API_KEY` to your repo secrets get one free at [aistudio.google.com](https://aistudio.google.com).
 
-`GITHUB_TOKEN` is injected automatically. Open a PR — done.
+`GITHUB_TOKEN` is injected automatically. Open a PR done.
 
 ---
 
-### Option 2 — MCP Server (Claude / Cursor)
+### Option 2 — Local CLI
 
 ```bash
 git clone https://github.com/nikhilsaiankilla/rabbitai
 cd rabbitai
-pip install -r requirements.txt
-cp config.example.yaml config.yaml
-# fill in your config.yaml
-python mcp/server.py
-```
-
-Add to your Claude or Cursor MCP config:
-
-```json
-{
-  "mcpServers": {
-    "rabbitai": {
-      "command": "python",
-      "args": ["/absolute/path/to/rabbitai/mcp/server.py"]
-    }
-  }
-}
-```
-
-Then type in Claude or Cursor: `"Review PR #12 in owner/myrepo"`
-
----
-
-### Option 3 — Local CLI
-
-```bash
-git clone https://github.com/nikhilsaiankilla/rabbitai
-cd rabbitai
-pip install -r requirements.txt
+pip install rabbitai-reviewer
 cp config.example.yaml config.yaml
 # fill in your config.yaml
 ```
 
 ```python
 # test.py
-from agent import run
+from rabbitai.agent import run
 
 result = run(repo_name="your-username/your-repo", pr_number=1)
 print(result)
@@ -215,7 +183,7 @@ python test.py
 Copy `config.example.yaml` to `config.yaml` and fill in your values.
 
 ```yaml
-github_token: "" # local dev only — Actions injects GITHUB_TOKEN automatically
+github_token: "" # local dev only Actions injects GITHUB_TOKEN automatically
 gemini_api_key: "" # free at aistudio.google.com
 
 embedding:
@@ -256,22 +224,29 @@ All values can be overridden with environment variables. See the [full docs](htt
 
 ```
 rabbitai/
-├── .github/workflows/review.yml   ← GitHub Action trigger
-├── nodes/
-│   ├── fetcher.py                 ← fetch PR diff + metadata
-│   ├── graph_builder.py           ← NetworkX dependency graph + blast radius
-│   ├── classifier.py              ← change type detection
-│   ├── embedder.py                ← embeddings + vector DB storage
-│   ├── retriever.py               ← semantic search over stored chunks
-│   ├── reviewer.py                ← LLM review generation
-│   └── poster.py                  ← GitHub PR comment poster
-├── memory/repo_memory.py          ← mem0 persistent memory
-├── mcp/server.py                  ← MCP server for Claude/Cursor
-├── utils/
-│   ├── config.py                  ← config loader + env var overrides
-│   └── prompts.py                 ← review prompt templates
-├── agent.py                       ← LangGraph 9-node workflow entry point
+├── .github/
+│   └── workflows/
+│       ├── review.yml        ← self-review on every PR
+│       └── publish.yml       ← auto publish to PyPI on merge to main
+├── rabbitai/
+│   ├── nodes/
+│   │   ├── fetcher.py        ← fetch PR diff + metadata
+│   │   ├── graph_builder.py  ← NetworkX dependency graph + blast radius
+│   │   ├── classifier.py     ← change type detection
+│   │   ├── embedder.py       ← embeddings + vector DB storage
+│   │   ├── retriever.py      ← semantic search over stored chunks
+│   │   ├── reviewer.py       ← LLM review generation
+│   │   └── poster.py         ← GitHub PR comment poster
+│   ├── memory/
+│   │   └── repo_memory.py    ← mem0 persistent memory
+│   ├── mcp/
+│   │   └── server.py         ← MCP server for Claude/Cursor
+│   ├── utils/
+│   │   ├── config.py         ← config loader + env var overrides
+│   │   └── prompts.py        ← review prompt templates
+│   └── agent.py              ← LangGraph 9-node workflow entry point
 ├── config.example.yaml
+├── pyproject.toml
 └── requirements.txt
 ```
 
@@ -285,6 +260,8 @@ rabbitai/
 - [x] Gemini and OpenAI for LLM and embeddings
 - [x] mem0 persistent memory
 - [x] MCP server for Claude/Cursor
+- [x] Published to PyPI — `pip install rabbitai-reviewer`
+- [x] Auto publish to PyPI on merge to main
 - [ ] GitLab and Bitbucket support
 - [ ] Web dashboard for review history
 - [ ] Slack and Discord notifications
@@ -297,18 +274,20 @@ rabbitai/
 PRs welcome. RabbitAI reviews its own PRs.
 
 1. Fork the repo
-2. Create your branch — `git checkout -b feat/your-feature`
-3. Commit — `git commit -m 'feat: your feature'`
+2. Create your branch `git checkout -b feat/your-feature`
+3. Commit `git commit -m 'feat: your feature'`
 4. Push and open a PR
 
 ---
 
 ## License
 
-MIT — use it, fork it, self-host it, build on it.
+MIT use it, fork it, self-host it, build on it.
 
 ---
 
-**Built by [Nikhil Sai](https://nikhilsai.in)** · [@itzznikhilsai](https://x.com/itzznikhilsai)
-
-If this helped you, star the repo ⭐ and share it on X.
+<p align="center">
+  <strong>Built by <a href="https://nikhilsai.in">Nikhil Sai</a></strong> · <a href="https://x.com/itzznikhilsai">@itzznikhilsai</a>
+  <br/><br/>
+  If this helped you, star the repo ⭐ and share it on X.
+</p>
