@@ -9,6 +9,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,11 +30,9 @@ jobs:
       - name: Auto bump patch version
         id: bump
         run: |
-          # read current version from pyproject.toml
           CURRENT=$(grep '^version' pyproject.toml | head -1 | sed 's/version = "//' | sed 's/"//')
           echo "Current version: $CURRENT"
 
-          # bump patch: 0.1.0 → 0.1.1
           NEW=$(python -c "
           v = '$CURRENT'.split('.')
           v[2] = str(int(v[2]) + 1)
@@ -39,7 +40,6 @@ jobs:
           ")
           echo "New version: $NEW"
 
-          # update pyproject.toml
           sed -i "s/^version = \"$CURRENT\"/version = \"$NEW\"/" pyproject.toml
 
           echo "new_version=$NEW" >> $GITHUB_OUTPUT
