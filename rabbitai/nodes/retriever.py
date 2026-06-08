@@ -12,7 +12,6 @@ import time
 from dataclasses import dataclass
 
 from dataclasses_json import config
-from google import genai
 
 
 @dataclass

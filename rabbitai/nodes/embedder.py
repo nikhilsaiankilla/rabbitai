@@ -25,8 +25,6 @@ import hashlib
 import time
 from dataclasses import dataclass, field
 
-from google import genai
-
 # Data types
 
 
@@ -119,7 +117,8 @@ def _embed_texts(texts: list[str], config: dict) -> list[list[float]]:
         from google import genai
         api_key = config["gemini_api_key"]
         model = embed_cfg.get("model") or "models/gemini-embedding-001"
-        client = genai.Client(api_key=api_key, http_options={"api_version": "v1"})
+        client = genai.Client(api_key=api_key, http_options={
+                              "api_version": "v1"})
         vectors = []
         for text in texts:
             result = client.models.embed_content(model=model, contents=text)
@@ -139,7 +138,9 @@ def _embed_texts(texts: list[str], config: dict) -> list[list[float]]:
         return vectors
 
     else:
-        raise ValueError(f"Unknown embedding provider: '{provider}'. Supported: gemini, openai")
+        raise ValueError(
+            f"Unknown embedding provider: '{provider}'. Supported: gemini, openai")
+
 
 def _get_chromadb_collection(cfg: dict):
     import chromadb
