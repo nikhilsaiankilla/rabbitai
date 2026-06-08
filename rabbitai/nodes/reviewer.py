@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from google import genai
+import google.generativeai as genai
 
 from rabbitai.memory.repo_memory import MemoryResult
 from rabbitai.nodes.fetcher import PRData, diff_summary
@@ -99,7 +99,7 @@ def review(
     provider = llm_cfg.get("provider", "gemini").lower()
 
     if provider == "gemini":
-        from google import genai
+        import google.generativeai as genai
         client = genai.Client(api_key=config["gemini_api_key"])
         model = llm_cfg.get("model") or "gemini-2.0-flash"
 
