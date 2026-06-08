@@ -35,29 +35,9 @@ Unlike other code reviewers, RabbitAI:
 
 ## Demo
 
-```
-RabbitAI Code Review  ·  7/10
-
-[BUG]
-auth.ts line 23: user.id can be undefined if session expires before check
-
-[SECURITY]
-db.ts line 45: query is not parameterized SQL injection risk
-
-[PERFORMANCE]
-dashboard.tsx line 89: value recalculated on every render, consider useMemo
-
-[GOOD]
-Error boundaries correctly implemented throughout
-TypeScript types well-defined across all components
-
-Note: db.ts has 12 dependents this change is marked HIGH BLAST RADIUS
-
----
-🐇 RabbitAI · AI-powered code review · MIT License
-```
-
----
+<p align="center">
+  <img src="./assets/demo.png" alt="RabbitAI Demo — real PR review comment" width="100%" />
+</p>
 
 ## How It Works
 
