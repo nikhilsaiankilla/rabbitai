@@ -12,7 +12,6 @@ import time
 from dataclasses import dataclass
 
 from dataclasses_json import config
-import google.generativeai as genai
 
 
 @dataclass
@@ -36,7 +35,7 @@ def _embed_query(query: str, config: dict) -> list[float]:
     provider = embed_cfg.get("provider", "gemini").lower()
 
     if provider == "gemini":
-        import google.generativeai as genai
+        from google import genai
         api_key = config["gemini_api_key"]
         model = embed_cfg.get("model", "models/gemini-embedding-001")
         client = genai.Client(api_key=api_key, http_options={
